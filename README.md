@@ -49,15 +49,15 @@ conda activate cse488-cell-tracking
 pip install -e .
 
 # 3. Download tools + datasets
-python scripts/setup_data.py --dataset Fluo-N2DH-GOWT1 --splits training test
+python scripts/setup_data.py Fluo-N2DH-GOWT1 --splits training test
 
 # 4. Train a toy SVM baseline
-python scripts/train_svm.py --dataset Fluo-N2DH-GOWT1 --track 01 \
+python scripts/train_svm.py Fluo-N2DH-GOWT1 --track 01 \
     --window 5 --samples 500 --model-path artifacts/models/svm_rbf.pkl
 
 # 5. Evaluate with IoU + SEGMeasure
-python scripts/eval_seg.py --gt artifacts/datasets/Fluo-N2DH-GOWT1/training/01_ST/SEG \
-    --pred artifacts/results/Fluo-N2DH-GOWT1/01 --model-path artifacts/models/svm_rbf.pkl
+python scripts/eval_seg.py Fluo-N2DH-GOWT1 --track 01 --window 5 \
+    --model-path artifacts/models/svm_rbf.pkl
 ```
 
 Key environment variables:

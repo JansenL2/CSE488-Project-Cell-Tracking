@@ -23,7 +23,7 @@ def main() -> None:
     args = parser.parse_args()
 
     model = svm_module.load_model(args.model_path)
-    dataset_root = artifacts_path("datasets", args.dataset, "training")
+    dataset_root = artifacts_path("datasets", args.dataset, "training", args.dataset)
     image = io.imread(str(dataset_root / args.track / "t000.tif"))
     gt = io.imread(str(dataset_root / f"{args.track}_ST" / "SEG" / "man_seg000.tif"))
 

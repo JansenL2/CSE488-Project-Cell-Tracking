@@ -26,7 +26,7 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    dataset_root = artifacts_path("datasets", args.dataset, "training")
+    dataset_root = artifacts_path("datasets", args.dataset, "training", args.dataset)
     pairs = [
         ImageMaskPair(
             dataset_root / args.track / f"t{i:03d}.tif",
