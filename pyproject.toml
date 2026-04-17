@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "cse488-cell-tracking"
 version = "0.1.0"
 description = "Starter toolkit for the CSE488 cell segmentation & tracking project"
-authors = [{name = "Femian John Charles", email = ""}]
+authors = [{name = "Femian John Charles", email = "femianjc@MiamiOH.edu"}]
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [

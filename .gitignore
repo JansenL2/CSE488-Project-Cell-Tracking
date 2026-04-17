@@ -5,6 +5,7 @@ __pycache__/
 # Environments
 .venv/
 .env
+venv/
 
 # Editors
 .vscode/
@@ -25,3 +26,8 @@ artifacts/
 # OS cruft
 .DS_Store
 Thumbs.db
+
+# Build and install artifacts
+*.egg-info/
+build/
+dist/
