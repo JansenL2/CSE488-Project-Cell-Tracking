@@ -24,19 +24,53 @@ def main() -> None:
 
     model = svm_module.load_model(args.model_path)
     dataset_root = artifacts_path("datasets", args.dataset, "training", args.dataset)
-    image = io.imread(str(dataset_root / args.track / "t000.tif"))
-    gt = io.imread(str(dataset_root / f"{args.track}_ST" / "SEG" / "man_seg000.tif"))
-
-    preds = svm_module.predict_image(image, model, args.window)
-    mask = (preds.reshape(image.shape) > 0.5).astype(np.uint8)
-    mean_iou, per_object = compute_jaccard_index_for_matches(gt, mask)
-    print(f"Mean IoU: {mean_iou:.3f}")
-    for label, iou in per_object.items():
-        print(f"  Label {label}: {iou:.3f}")
-
+    
+    # Find all frames
+    track_dir = dataset_root / args.track
+    frame_files = sorted(track_dir.glob("t*.tif"))
+    
+    if not frame_files:
+        print(f"No frames found in {track_dir}")
+        return
+    
+    # Process all frames
+    all_ious = []
     pred_dir = artifacts_path("results", args.dataset, args.track)
     pred_dir.mkdir(parents=True, exist_ok=True)
-    io.imsave(str(pred_dir / "mask000.tif"), mask * 255)
+    
+    for frame_path in frame_files:
+        frame_num = frame_path.stem[1:]  # Extract "000" from "t000.tif"
+        
+        image = io.imread(str(frame_path))
+        gt_path = dataset_root / f"{args.track}_ST" / "SEG" / f"man_seg{frame_num}.tif"
+        
+        if not gt_path.exists():
+            print(f"Skipping {frame_num}: no ground truth")
+            continue
+        
+        gt = io.imread(str(gt_path))
+        
+        # Predict
+        preds = svm_module.predict_image(image, model, args.window)
+        mask = (preds.reshape(image.shape) > 0.5).astype(np.uint8)
+        
+        # Compute IoU
+        mean_iou, per_object = compute_jaccard_index_for_matches(gt, mask)
+        all_ious.append(mean_iou)
+        
+        print(f"Frame {frame_num}: Mean IoU = {mean_iou:.3f}")
+        for label, iou in per_object.items():
+            print(f"  Label {label}: {iou:.3f}")
+        
+        # Save mask
+        io.imsave(str(pred_dir / f"mask{frame_num}.tif"), mask * 255)
+    
+    # Summary
+    if all_ious:
+        print(f"\nOverall Mean IoU: {np.mean(all_ious):.3f}")
+        print(f"Std Dev: {np.std(all_ious):.3f}")
+    
+    # Run SEGMeasure on all predictions
     run_segmeasure(
         dataset_root / f"{args.track}_ST" / "SEG",
         pred_dir,
