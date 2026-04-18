@@ -51,14 +51,58 @@ pip install -e .
 # 3. Download tools + datasets
 python scripts/setup_data.py Fluo-N2DH-GOWT1 --splits training test
 
-# 4. Train a toy SVM baseline
-python scripts/train_svm.py Fluo-N2DH-GOWT1 --track 01 \
-    --window 5 --samples 500 --model-path artifacts/models/svm_rbf.pkl
+# 4. Train a classical baseline
+python scripts/train_model.py Fluo-N2DH-GOWT1 --track 01 \
+    --model svm --frames 0-19 --window 5 --samples 500 \
+    --model-path artifacts/models/svm_rbf.pkl
 
 # 5. Evaluate with IoU + SEGMeasure
 python scripts/eval_seg.py Fluo-N2DH-GOWT1 --track 01 --window 5 \
-    --model-path artifacts/models/svm_rbf.pkl
+    --model svm --frames 20-29 --model-path artifacts/models/svm_rbf.pkl
 ```
+
+## Comparing Multiple Classical Models
+
+Use the same dataset, track, frame split, window size, and sampling settings for each run so your comparison is fair.
+
+Train three classical baselines on the same training frames:
+
+```bash
+python3 scripts/train_model.py Fluo-N2DH-GOWT1 --track 01 --model svm \
+    --frames 0-19 --window 5 --samples 500 \
+    --model-path artifacts/models/svm.pkl
+
+python3 scripts/train_model.py Fluo-N2DH-GOWT1 --track 01 --model logreg \
+    --frames 0-19 --window 5 --samples 500 \
+    --model-path artifacts/models/logreg.pkl
+
+python3 scripts/train_model.py Fluo-N2DH-GOWT1 --track 01 --model rf \
+    --frames 0-19 --window 5 --samples 500 \
+    --model-path artifacts/models/rf.pkl
+```
+
+Evaluate each model on the same held-out validation frames:
+
+```bash
+python3 scripts/eval_seg.py Fluo-N2DH-GOWT1 --track 01 --model svm \
+    --frames 20-29 --window 5 --model-path artifacts/models/svm.pkl
+
+python3 scripts/eval_seg.py Fluo-N2DH-GOWT1 --track 01 --model logreg \
+    --frames 20-29 --window 5 --model-path artifacts/models/logreg.pkl
+
+python3 scripts/eval_seg.py Fluo-N2DH-GOWT1 --track 01 --model rf \
+    --frames 20-29 --window 5 --model-path artifacts/models/rf.pkl
+```
+
+Helpful flags:
+
+- `--model`: choose `svm`, `logreg`, or `rf`
+- `--frames`: select frames with a list or ranges like `0-19` or `0-9,15,20-25`
+- `--window`: choose the sliding-window size used for features
+- `--samples`: choose how many foreground/background pixels to sample per training image
+- `--model-path`: set where the trained model is saved or loaded
+
+Predicted masks are saved under `artifacts/results/<dataset>/<track>/<model>/` so results from different models do not overwrite each other.
 
 Key environment variables:
 

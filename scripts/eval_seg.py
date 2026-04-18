@@ -1,4 +1,4 @@
-"""Evaluate predictions with IoU + SEGMeasure."""
+"""Evaluate classical model predictions with IoU + SEGMeasure."""
 
 from __future__ import annotations
 
@@ -10,24 +10,39 @@ from skimage import io
 
 from cell_tracking.config import artifacts_path
 from cell_tracking.evaluation import compute_jaccard_index_for_matches, run_segmeasure
-from cell_tracking.models import svm as svm_module
+from cell_tracking.models import classical as classical_module
+from cell_tracking.splits import parse_frame_spec
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Evaluate SVM predictions")
+    parser = argparse.ArgumentParser(description="Evaluate classical model predictions")
     parser.add_argument("dataset", help="Dataset name")
     parser.add_argument("--track", default="01", help="Track identifier")
     parser.add_argument("--window", type=int, default=5, help="Window size used for training")
     parser.add_argument("--model-path", type=Path, default=artifacts_path("models", "svm.pkl"))
+    parser.add_argument(
+        "--model",
+        choices=classical_module.MODEL_CHOICES,
+        default="svm",
+        help="Model family used for naming outputs and probability handling",
+    )
+    parser.add_argument(
+        "--frames",
+        help="Comma-separated frame list/ranges to evaluate, e.g. '20-29'",
+    )
     parser.add_argument("--verbose", action="store_true", help="Print SEGMeasure output")
     args = parser.parse_args()
 
-    model = svm_module.load_model(args.model_path)
+    model = classical_module.load_model(args.model_path)
     dataset_root = artifacts_path("datasets", args.dataset, "training", args.dataset)
     
     # Find all frames
     track_dir = dataset_root / args.track
     frame_files = sorted(track_dir.glob("t*.tif"))
+    selected_frames = parse_frame_spec(args.frames)
+    if selected_frames is not None:
+        selected_names = {f"t{frame:03d}" for frame in selected_frames}
+        frame_files = [frame_path for frame_path in frame_files if frame_path.stem in selected_names]
     
     if not frame_files:
         print(f"No frames found in {track_dir}")
@@ -35,7 +50,7 @@ def main() -> None:
     
     # Process all frames
     all_ious = []
-    pred_dir = artifacts_path("results", args.dataset, args.track)
+    pred_dir = artifacts_path("results", args.dataset, args.track, args.model)
     pred_dir.mkdir(parents=True, exist_ok=True)
     
     for frame_path in frame_files:
@@ -51,7 +66,13 @@ def main() -> None:
         gt = io.imread(str(gt_path))
         
         # Predict
-        preds = svm_module.predict_image(image, model, args.window)
+        use_probabilities = args.model in {"svm", "logreg", "rf"}
+        preds = classical_module.predict_image(
+            image,
+            model,
+            args.window,
+            return_probabilities=use_probabilities,
+        )
         mask = (preds.reshape(image.shape) > 0.5).astype(np.uint8)
         
         # Compute IoU
