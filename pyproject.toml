@@ -20,6 +20,7 @@ dependencies = [
   "requests>=2.32",
   "typer>=0.12",
   "imagecodecs",
+  "rich>=13.0",
 ]
 
 [project.optional-dependencies]

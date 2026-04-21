@@ -48,10 +48,20 @@ def load_model(source: Path):
         return pickle.load(fh)
 
 
-def predict_image(image: np.ndarray, model, window_size: int, return_probabilities: bool = False) -> np.ndarray:
-    """Predict per-pixel labels from sliding-window features."""
-
-    flat_features = sliding_window_features(image, window_size)
+def predict_image(image: np.ndarray, model, window_size: int, return_probabilities: bool = False, use_enhanced_features: bool = True) -> np.ndarray:
+    """Predict per-pixel labels from sliding-window features.
+    
+    Args:
+        image: Input image array
+        model: Trained scikit-learn classifier
+        window_size: Size of the sliding window
+        return_probabilities: If True, return probability scores instead of class labels
+        use_enhanced_features: If True, use scikit-image based features. If False, use raw pixels.
+    
+    Returns:
+        Prediction array (class labels or probabilities) for each pixel
+    """
+    flat_features = sliding_window_features(image, window_size, use_enhanced_features=use_enhanced_features)
     if return_probabilities and hasattr(model, "predict_proba"):
         probabilities = model.predict_proba(flat_features)
         if probabilities.ndim == 2 and probabilities.shape[1] > 1:

@@ -51,53 +51,64 @@ pip install -e .
 # 3. Download tools + datasets
 python scripts/setup_data.py Fluo-N2DH-GOWT1 --splits training test
 
-# 4. Train a classical baseline
+# 4. View recommended train/validation/test split
+python scripts/demonstrate_split.py
+
+# 5. Train a classical baseline with enhanced scikit-image features
 python scripts/train_model.py Fluo-N2DH-GOWT1 --track 01 \
-    --model svm --frames 0-19 --window 5 --samples 500 \
+    --model svm --frames 0-54 --window 5 --samples 500 \
     --model-path artifacts/models/svm_rbf.pkl
 
-# 5. Evaluate with IoU + SEGMeasure
+# 6. Evaluate with IoU + SEGMeasure
 python scripts/eval_seg.py Fluo-N2DH-GOWT1 --track 01 --window 5 \
-    --model svm --frames 20-29 --model-path artifacts/models/svm_rbf.pkl
+    --model svm --frames 73-91 --model-path artifacts/models/svm_rbf.pkl
 ```
 
 ## Comparing Multiple Classical Models
 
 Use the same dataset, track, frame split, window size, and sampling settings for each run so your comparison is fair.
 
-Train three classical baselines on the same training frames:
+**Data Split Strategy**: The dataset contains 92 frames. We use a 60/20/20 split:
+- **Training** (60%): frames 0–54 (55 frames) – used to train models
+- **Validation** (20%): frames 55–72 (18 frames) – used to tune hyperparameters  
+- **Test** (20%): frames 73–91 (19 frames) – held-out for final evaluation
+
+Train three classical baselines on the same training frames with enhanced scikit-image features:
 
 ```bash
-python3 scripts/train_model.py Fluo-N2DH-GOWT1 --track 01 --model svm \
-    --frames 0-19 --window 5 --samples 500 \
+python scripts/train_model.py Fluo-N2DH-GOWT1 --track 01 --model svm \
+    --frames 0-54 --window 5 --samples 500 \
     --model-path artifacts/models/svm.pkl
 
-python3 scripts/train_model.py Fluo-N2DH-GOWT1 --track 01 --model logreg \
-    --frames 0-19 --window 5 --samples 500 \
+python scripts/train_model.py Fluo-N2DH-GOWT1 --track 01 --model logreg \
+    --frames 0-54 --window 5 --samples 500 \
     --model-path artifacts/models/logreg.pkl
 
-python3 scripts/train_model.py Fluo-N2DH-GOWT1 --track 01 --model rf \
-    --frames 0-19 --window 5 --samples 500 \
+python scripts/train_model.py Fluo-N2DH-GOWT1 --track 01 --model rf \
+    --frames 0-54 --window 5 --samples 500 \
     --model-path artifacts/models/rf.pkl
 ```
 
-Evaluate each model on the same held-out validation frames:
+Evaluate each model on the same held-out test frames:
 
 ```bash
-python3 scripts/eval_seg.py Fluo-N2DH-GOWT1 --track 01 --model svm \
-    --frames 20-29 --window 5 --model-path artifacts/models/svm.pkl
+python scripts/eval_seg.py Fluo-N2DH-GOWT1 --track 01 --model svm \
+    --frames 73-91 --window 5 --model-path artifacts/models/svm.pkl
 
-python3 scripts/eval_seg.py Fluo-N2DH-GOWT1 --track 01 --model logreg \
-    --frames 20-29 --window 5 --model-path artifacts/models/logreg.pkl
+python scripts/eval_seg.py Fluo-N2DH-GOWT1 --track 01 --model logreg \
+    --frames 73-91 --window 5 --model-path artifacts/models/logreg.pkl
 
-python3 scripts/eval_seg.py Fluo-N2DH-GOWT1 --track 01 --model rf \
-    --frames 20-29 --window 5 --model-path artifacts/models/rf.pkl
+python scripts/eval_seg.py Fluo-N2DH-GOWT1 --track 01 --model rf \
+    --frames 73-91 --window 5 --model-path artifacts/models/rf.pkl
 ```
+
+**Feature Engineering**: By default, all scripts use **enhanced scikit-image features** including edge detection (Sobel), Laplacian filters, Gaussian multi-scale responses, Canny edges, and gradient magnitude statistics. To use raw pixel features instead, add the `--no-enhanced-features` flag to `train_model.py`.
 
 Helpful flags:
 
 - `--model`: choose `svm`, `logreg`, or `rf`
-- `--frames`: select frames with a list or ranges like `0-19` or `0-9,15,20-25`
+- `--frames`: select frames with a list or ranges like `0-54` or `0-9,15,20-25`
+- `--no-enhanced-features`: use raw pixel features instead of scikit-image filters
 - `--window`: choose the sliding-window size used for features
 - `--samples`: choose how many foreground/background pixels to sample per training image
 - `--model-path`: set where the trained model is saved or loaded
