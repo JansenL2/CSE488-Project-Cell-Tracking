@@ -76,30 +76,21 @@ Use the same dataset, track, frame split, window size, and sampling settings for
 Train three classical baselines on the same training frames with enhanced scikit-image features:
 
 ```bash
-python scripts/train_model.py Fluo-N2DH-GOWT1 --track 01 --model svm \
-    --frames 0-54 --window 5 --samples 500 \
-    --model-path artifacts/models/svm.pkl
+python scripts/train_model.py Fluo-N2DH-GOWT1 --track 01 --model svm --frames 0-54 --window 5 --samples 500 --model-path artifacts/models/svm.pkl
 
-python scripts/train_model.py Fluo-N2DH-GOWT1 --track 01 --model logreg \
-    --frames 0-54 --window 5 --samples 500 \
-    --model-path artifacts/models/logreg.pkl
+python scripts/train_model.py Fluo-N2DH-GOWT1 --track 01 --model logreg --frames 0-54 --window 5 --samples 500 --model-path artifacts/models/logreg.pkl
 
-python scripts/train_model.py Fluo-N2DH-GOWT1 --track 01 --model rf \
-    --frames 0-54 --window 5 --samples 500 \
-    --model-path artifacts/models/rf.pkl
+python scripts/train_model.py Fluo-N2DH-GOWT1 --track 01 --model rf --frames 0-54 --window 5 --samples 500 --model-path artifacts/models/rf.pkl
 ```
 
 Evaluate each model on the same held-out test frames:
 
 ```bash
-python scripts/eval_seg.py Fluo-N2DH-GOWT1 --track 01 --model svm \
-    --frames 73-91 --window 5 --model-path artifacts/models/svm.pkl
+python scripts/eval_seg.py Fluo-N2DH-GOWT1 --track 01 --model svm --frames 73-91 --window 5 --model-path artifacts/models/svm.pkl
 
-python scripts/eval_seg.py Fluo-N2DH-GOWT1 --track 01 --model logreg \
-    --frames 73-91 --window 5 --model-path artifacts/models/logreg.pkl
+python scripts/eval_seg.py Fluo-N2DH-GOWT1 --track 01 --model logreg --frames 73-91 --window 5 --model-path artifacts/models/logreg.pkl
 
-python scripts/eval_seg.py Fluo-N2DH-GOWT1 --track 01 --model rf \
-    --frames 73-91 --window 5 --model-path artifacts/models/rf.pkl
+python scripts/eval_seg.py Fluo-N2DH-GOWT1 --track 01 --model rf  --frames 73-91 --window 5 --model-path artifacts/models/rf.pkl
 ```
 
 **Feature Engineering**: By default, all scripts use **enhanced scikit-image features** including edge detection (Sobel), Laplacian filters, Gaussian multi-scale responses, Canny edges, and gradient magnitude statistics. To use raw pixel features instead, add the `--no-enhanced-features` flag to `train_model.py`.
