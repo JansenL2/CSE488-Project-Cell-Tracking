@@ -3,15 +3,24 @@
 from __future__ import annotations
 
 import argparse
+from datetime import datetime, timezone
 from pathlib import Path
+import time
 
 import numpy as np
 from skimage import io
 from rich.console import Console
-from rich.progress import Progress, SpinnerColumn, BarColumn, TextColumn
+from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
 
 from cell_tracking.config import artifacts_path
-from cell_tracking.evaluation import compute_jaccard_index_for_matches, run_segmeasure, save_colored_segmentation
+from cell_tracking.evaluation import (
+    count_segmeasure_pairs,
+    compute_jaccard_index_for_matches,
+    run_segmeasure,
+    save_colored_segmentation,
+    save_evaluation_report,
+    segmeasure_result_to_dict,
+)
 from cell_tracking.models import classical as classical_module
 from cell_tracking.splits import parse_frame_spec
 
@@ -19,6 +28,7 @@ console = Console()
 
 
 def main() -> None:
+    evaluation_start = time.perf_counter()
     parser = argparse.ArgumentParser(description="Evaluate classical model predictions")
     parser.add_argument("dataset", help="Dataset name")
     parser.add_argument("--track", default="01", help="Track identifier")
@@ -54,6 +64,8 @@ def main() -> None:
     
     # Process all frames
     all_ious = []
+    evaluated_frames = []
+    skipped_frames = []
     pred_dir = artifacts_path("results", args.dataset, args.track, args.model)
     pred_dir.mkdir(parents=True, exist_ok=True)
     
@@ -64,11 +76,14 @@ def main() -> None:
     console.print(f"  Results dir: {pred_dir}")
     console.print()
     
+    frame_eval_start = time.perf_counter()
     with Progress(
         SpinnerColumn(),
         TextColumn("[progress.description]{task.description}"),
         BarColumn(),
         TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+        TimeElapsedColumn(),
+        TimeRemainingColumn(),
     ) as progress:
         task = progress.add_task("Evaluating frames...", total=len(frame_files))
         
@@ -80,6 +95,7 @@ def main() -> None:
             
             if not gt_path.exists():
                 console.print(f"[yellow]Skipping {frame_num}: no ground truth[/yellow]")
+                skipped_frames.append(frame_num)
                 progress.update(task, advance=1)
                 continue
             
@@ -98,6 +114,14 @@ def main() -> None:
             # Compute IoU
             mean_iou, per_object = compute_jaccard_index_for_matches(gt, mask)
             all_ious.append(mean_iou)
+            evaluated_frames.append(
+                {
+                    "frame": frame_num,
+                    "mean_iou": float(mean_iou),
+                    "matched_objects": len(per_object),
+                    "per_object_iou": {str(label): float(iou) for label, iou in per_object.items()},
+                }
+            )
             
             # Save binary mask
             io.imsave(str(pred_dir / f"mask{frame_num}.tif"), mask * 255)
@@ -110,6 +134,7 @@ def main() -> None:
             )
             
             progress.update(task, advance=1)
+    frame_evaluation_elapsed_seconds = time.perf_counter() - frame_eval_start
     
     # Summary with rich formatting
     console.print()
@@ -127,11 +152,64 @@ def main() -> None:
     # Run SEGMeasure on all predictions
     console.print()
     console.print("[bold blue]Running SEGMeasure...[/bold blue]")
-    run_segmeasure(
-        dataset_root / f"{args.track}_ST" / "SEG",
-        pred_dir,
-        verbose=args.verbose,
-    )
+    segmeasure_total = count_segmeasure_pairs(dataset_root / f"{args.track}_ST" / "SEG", pred_dir)
+    with Progress(
+        SpinnerColumn(),
+        TextColumn("[progress.description]{task.description}"),
+        BarColumn(),
+        TextColumn("[progress.percentage]{task.percentage:>3.0f}%"),
+        TimeElapsedColumn(),
+        TimeRemainingColumn(),
+    ) as progress:
+        task = progress.add_task("Computing SEGMeasure score...", total=max(segmeasure_total, 1))
+        segmeasure_result = run_segmeasure(
+            dataset_root / f"{args.track}_ST" / "SEG",
+            pred_dir,
+            verbose=args.verbose,
+            progress_callback=lambda completed, _total, frame_num: progress.update(
+                task,
+                completed=completed,
+                description=f"Computing SEGMeasure score... frame {frame_num}",
+            ),
+        )
+    total_elapsed_seconds = time.perf_counter() - evaluation_start
+    
+    iou_summary = {
+        "mean": float(np.mean(all_ious)) if all_ious else None,
+        "std": float(np.std(all_ious)) if all_ious else None,
+        "min": float(np.min(all_ious)) if all_ious else None,
+        "max": float(np.max(all_ious)) if all_ious else None,
+    }
+    report = {
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+        "dataset": args.dataset,
+        "track": args.track,
+        "model": args.model,
+        "model_path": str(args.model_path.resolve()),
+        "window_size": args.window,
+        "results_dir": str(pred_dir.resolve()),
+        "ground_truth_dir": str((dataset_root / f"{args.track}_ST" / "SEG").resolve()),
+        "total_elapsed_seconds": total_elapsed_seconds,
+        "frame_evaluation_elapsed_seconds": frame_evaluation_elapsed_seconds,
+        "segmeasure_elapsed_seconds": segmeasure_result.elapsed_seconds,
+        "frames": {
+            "requested_count": len(frame_files),
+            "evaluated_count": len(evaluated_frames),
+            "skipped_count": len(skipped_frames),
+            "requested": [frame_path.stem[1:] for frame_path in frame_files],
+            "evaluated": [frame["frame"] for frame in evaluated_frames],
+            "skipped": skipped_frames,
+        },
+        "iou_summary": iou_summary,
+        "frame_metrics": evaluated_frames,
+        "segmeasure": segmeasure_result_to_dict(segmeasure_result),
+    }
+    text_report_path, json_report_path = save_evaluation_report(pred_dir, report)
+
+    console.print()
+    console.print("[bold green]Saved latest evaluation report[/bold green]")
+    console.print(f"  Text: {text_report_path}")
+    console.print(f"  JSON: {json_report_path}")
 
 
 if __name__ == "__main__":
