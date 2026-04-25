@@ -105,6 +105,7 @@ Helpful flags:
 - `--model-path`: set where the trained model is saved or loaded
 
 Predicted masks are saved under `artifacts/results/<dataset>/<track>/<model>/` so results from different models do not overwrite each other.
+Each evaluation also overwrites `latest_evaluation.txt` and `latest_evaluation.json` in that same model-specific results directory with the newest IoU summary, SEGMeasure score, frame list, and run metadata.
 
 Key environment variables:
 
