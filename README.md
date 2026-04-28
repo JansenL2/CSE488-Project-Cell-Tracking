@@ -1,79 +1,100 @@
-# CSE488 Project – Cell Segmentation & Tracking Starter
+# CSE488 Cell Segmentation Project
 
-This repository replaces the shared Colab notebook with a reproducible Python project for the Cell Tracking Challenge inspired assignment. Use it as a GitHub **template repository** so every team starts from the same baseline while keeping their fork private and shared only with the instructional staff. Major goals:
+This repository contains my undergraduate CSE488 project for classical cell segmentation on the Cell Tracking Challenge silver-truth data. The work is implemented as reproducible Python scripts rather than notebook-only analysis.
 
-- Provide scripts for downloading challenge data, evaluation tooling, and helper assets.
-- Offer reusable modules for feature extraction, classical ML (SVM baseline), and evaluation (IoU + SEGMeasure wrapper).
-- Encourage clean experiments tracked via version control instead of ad-hoc Colab sessions.
+The current experiments use the `Fluo-N2DH-GOWT1` dataset, track `01`, and compare three classical trainable segmentation methods:
 
-## Using This Template
+- Support Vector Machine (`svm`)
+- Logistic Regression (`logreg`)
+- Random Forest (`rf`)
 
-1. On GitHub, click **Use this template → Create a new repository**. Keep the repo private and name it `<team>-cell-tracking` (or similar).
-2. Add the instructor and TAs (John Femiani, Heather Merhout, Siddhant Karki) as collaborators so they can clone and grade your work.
-3. Clone your newly created repo locally, then follow the quickstart below to set up the environment.
-4. Customize the showcase page under `docs/index.md` (team name, metrics, media). Keep large artifacts under `docs/assets/`.
-5. Update the README in your fork with experiment notes, checkpoints, and the Cloudflare Pages URL you will publish.
+## Project Summary
 
-## Project Layout
+I use the labeled silver-truth `training` split from the Cell Tracking Challenge and create my own train/validation/test partition from those labeled frames:
 
-```
+- Training: frames `0-54`
+- Validation: frames `55-72`
+- Test: frames `73-91`
+
+This follows the assignment requirement to hold out part of the silver-truth data for evaluation rather than assuming the challenge-provided `test` download is labeled.
+
+All three models are trained with the same:
+
+- dataset and track
+- frame split
+- sliding-window size
+- per-image sampling budget
+- evaluation protocol
+
+Predictions are evaluated with IoU summaries plus the provided `MySEGMeasure.py`-style SEG metric wrapper included in this project.
+
+## Current Results
+
+Held-out evaluation on frames `73-91`:
+
+| Model | Mean IoU | SEG / Mean Jaccard |
+| ----- | -------- | ------------------ |
+| `svm` | `0.8896` | `0.8895` |
+| `logreg` | `0.8928` | `0.8926` |
+| `rf` | `0.9037` | `0.9035` |
+
+At the moment, the Random Forest baseline is the strongest of the three classical methods in this repo.
+
+## Repository Layout
+
+```text
 CSE488-Project-Cell-Tracking/
 ├── README.md
 ├── pyproject.toml
 ├── environment.yml
 ├── scripts/
 │   ├── setup_data.py
+│   ├── demonstrate_split.py
+│   ├── train_model.py
 │   ├── train_svm.py
 │   └── eval_seg.py
 ├── src/cell_tracking/
-│   ├── __init__.py
 │   ├── config.py
 │   ├── data.py
 │   ├── evaluation.py
 │   ├── features.py
-│   └── models/svm.py
-├── notebooks/
-│   └── 00_reference_colab.ipynb
+│   ├── splits.py
+│   └── models/
+│       └── classical.py
+├── docs/
+│   └── index.md
 └── tests/
     └── test_features.py
 ```
 
-## Quickstart
+## Setup
 
 ```bash
-# 1. Create environment
 conda env create -f environment.yml
 conda activate cse488-cell-tracking
-
-# 2. Install repo in editable mode
-pip install -e .
-
-# 3. Download tools + datasets
-python scripts/setup_data.py Fluo-N2DH-GOWT1 --splits training test
-
-# 4. View recommended train/validation/test split
-python scripts/demonstrate_split.py
-
-# 5. Train a classical baseline with enhanced scikit-image features
-python scripts/train_model.py Fluo-N2DH-GOWT1 --track 01 \
-    --model svm --frames 0-54 --window 5 --samples 500 \
-    --model-path artifacts/models/svm_rbf.pkl
-
-# 6. Evaluate with IoU + SEGMeasure
-python scripts/eval_seg.py Fluo-N2DH-GOWT1 --track 01 --window 5 \
-    --model svm --frames 73-91 --model-path artifacts/models/svm_rbf.pkl
 ```
 
-## Comparing Multiple Classical Models
+If you prefer, you can also install directly with pip in an existing Python 3.11 environment:
 
-Use the same dataset, track, frame split, window size, and sampling settings for each run so your comparison is fair.
+```bash
+pip install -e .[dev]
+```
 
-**Data Split Strategy**: The dataset contains 92 frames. We use a 60/20/20 split:
-- **Training** (60%): frames 0–54 (55 frames) – used to train models
-- **Validation** (20%): frames 55–72 (18 frames) – used to tune hyperparameters  
-- **Test** (20%): frames 73–91 (19 frames) – held-out for final evaluation
+## Quickstart
 
-Train three classical baselines on the same training frames with enhanced scikit-image features:
+1. Download the dataset and evaluation tools:
+
+```bash
+python scripts/setup_data.py Fluo-N2DH-GOWT1 --splits training test
+```
+
+2. View the split helper output:
+
+```bash
+python scripts/demonstrate_split.py
+```
+
+3. Train the three classical baselines:
 
 ```bash
 python scripts/train_model.py Fluo-N2DH-GOWT1 --track 01 --model svm --frames 0-54 --window 5 --samples 500 --model-path artifacts/models/svm.pkl
@@ -83,58 +104,52 @@ python scripts/train_model.py Fluo-N2DH-GOWT1 --track 01 --model logreg --frames
 python scripts/train_model.py Fluo-N2DH-GOWT1 --track 01 --model rf --frames 0-54 --window 5 --samples 500 --model-path artifacts/models/rf.pkl
 ```
 
-Evaluate each model on the same held-out test frames:
+4. Evaluate each model on the held-out test frames:
 
 ```bash
 python scripts/eval_seg.py Fluo-N2DH-GOWT1 --track 01 --model svm --frames 73-91 --window 5 --model-path artifacts/models/svm.pkl
 
 python scripts/eval_seg.py Fluo-N2DH-GOWT1 --track 01 --model logreg --frames 73-91 --window 5 --model-path artifacts/models/logreg.pkl
 
-python scripts/eval_seg.py Fluo-N2DH-GOWT1 --track 01 --model rf  --frames 73-91 --window 5 --model-path artifacts/models/rf.pkl
+python scripts/eval_seg.py Fluo-N2DH-GOWT1 --track 01 --model rf --frames 73-91 --window 5 --model-path artifacts/models/rf.pkl
 ```
 
-**Feature Engineering**: By default, all scripts use **enhanced scikit-image features** including edge detection (Sobel), Laplacian filters, Gaussian multi-scale responses, Canny edges, and gradient magnitude statistics. To use raw pixel features instead, add the `--no-enhanced-features` flag to `train_model.py`.
+## Reproducibility Notes
 
-Helpful flags:
+- Training uses images and silver-truth masks from the challenge `training` download.
+- Local evaluation also uses the `training` download because that is where the labels live.
+- The official challenge `test` download is not used for local scoring because it does not provide the same ground-truth segmentation masks for this workflow.
+- To avoid leakage, always pass explicit `--frames` values during training and evaluation.
 
-- `--model`: choose `svm`, `logreg`, or `rf`
-- `--frames`: select frames with a list or ranges like `0-54` or `0-9,15,20-25`
-- `--no-enhanced-features`: use raw pixel features instead of scikit-image filters
-- `--window`: choose the sliding-window size used for features
-- `--samples`: choose how many foreground/background pixels to sample per training image
-- `--model-path`: set where the trained model is saved or loaded
+The model and evaluation scripts currently have permissive defaults intended for quick experimentation, so the commands above are the recommended reproducible runs for the project report.
 
-Predicted masks are saved under `artifacts/results/<dataset>/<track>/<model>/` so results from different models do not overwrite each other.
-Each evaluation also overwrites `latest_evaluation.txt` and `latest_evaluation.json` in that same model-specific results directory with the newest IoU summary, SEGMeasure score, frame list, and run metadata.
+## Files Produced
 
-Key environment variables:
+- Trained models: `artifacts/models/*.pkl`
+- Predicted masks and reports: `artifacts/results/<dataset>/<track>/<model>/`
+- Latest evaluation summaries: `latest_evaluation.txt` and `latest_evaluation.json` inside each model result directory
 
-- `CELL_TRACKING_BASE`: Root folder for datasets/results (defaults to `<repo>/artifacts`).
-- `CELL_TRACKING_DATASETS`: Optional override for dataset cache.
+## Testing
 
-## Notebooks
+Run the lightweight test suite with:
 
-`notebooks/00_reference_colab.ipynb` mirrors the original Colab walkthrough but imports utilities from `src/cell_tracking`. Feel free to add exploratory notebooks; keep production code in `src/` and automation in `scripts/`.
+```bash
+python3 -m pytest -q
+```
 
-## Next Steps for Students
+## Report Checklist
 
-1. Fork the repo (keep private) and invite John Femiani, Heather Merhout, and Siddhant Karki.
-2. Use issues/projects to plan segmentation/tracking experiments.
-3. Extend `scripts/` and `src/cell_tracking/` with custom methods (CNNs, trackers, etc.). For deep baselines, start with lightweight U-Nets from `segmentation_models_pytorch` (e.g., MobileNet or EfficientNet encoders) to keep training feasible.
-4. Publish qualitative results and videos via GitHub Pages (or similar) linked from your README.
+The final PDF report should document:
 
-## Cloudflare Pages Showcase
+- the problem and dataset
+- the train/validation/test split and why it was chosen
+- the three classical methods compared
+- preprocessing and feature extraction
+- training settings and evaluation protocol
+- quantitative results and qualitative examples
+- strengths, weaknesses, and next steps
 
-Each team must host a lightweight public page that summarizes results and embeds demo videos. This repo includes the template at `docs/index.md`; Cloudflare Pages can publish the folder with zero build steps.
+## Notes
 
-1. Edit `docs/index.md` (and any `/docs/assets/*` media) so it reflects your project. Preview locally with `python -m http.server 8000` and visit `http://localhost:8000/docs/`.
-2. Commit and push to `main` in your fork.
-3. Visit https://dash.cloudflare.com (create a free account if you do not already have one), then open **Workers & Pages → Create application → Pages → Connect to Git**. When prompted, authorize the Cloudflare Pages GitHub app for your fork.
-4. Select your repo/branch, set **Framework preset** to `None`, leave the build command empty, and set the **Build output directory** to `docs`. Save to trigger the first deploy; Cloudflare provides `https://<project>.pages.dev`.
-5. In your GitHub repo, go to **Settings → Pages** and set “Build and deployment” to **Disabled** so Cloudflare is the only publisher.
-6. Update the README badge/link to point at the Cloudflare URL and include that URL in your Canvas submission. For a custom hostname, add it under **Pages → Custom domains** and create the suggested CNAME in Cloudflare DNS.
-7. **Fallback option:** If Cloudflare Pages is unavailable, share the rendered `docs/index.md` directly by linking to the file in your private repo (grant graders read access) and ensure the README clearly states that temporary arrangement.
-
-## License
-
-MIT License – adjust to match your team preference if needed.
+- `notebooks/00_reference_colab.ipynb` is legacy reference material only.
+- The actual submission work for this project lives in the scripts and source code under `scripts/` and `src/`.

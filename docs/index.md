@@ -1,52 +1,63 @@
-# TEAM_NAME – Cell Segmentation & Tracking Showcase
+# Cell Segmentation Showcase
 
-[![GitHub Repo](https://img.shields.io/badge/GitHub-Code-181717?logo=github&logoColor=white)](https://github.com/jfemiani/CSE488-Project-Cell-Tracking)
+This page summarizes the undergraduate classical segmentation portion of the project. The experiments use `Fluo-N2DH-GOWT1`, track `01`, and compare three trainable classical methods under the same feature extraction and evaluation pipeline.
 
-> Replace `TEAM_NAME`, update the badge link to your fork, and embed your own visuals. This page is what you submit as the public-facing deliverable.
+## Overview
 
-## Project Overview
+- Dataset: `Fluo-N2DH-GOWT1`
+- Track: `01`
+- Methods compared: `svm`, `logreg`, `rf`
+- Feature style: sliding-window pixel neighborhoods with enhanced scikit-image-derived features
+- Evaluation: held-out silver-truth frames with IoU and SEG / Mean Jaccard
 
-- **Dataset(s):** E.g., Fluo-N2DH-GOWT1 (tracks 01 & 02)
-- **Team roles:** segmentation lead, tracking lead, evaluation lead
-- **Summary:** Briefly explain your approach and what makes it unique.
+## Split Strategy
 
-## Segmentation Results
+I created a train/validation/test split from the labeled silver-truth frames in the challenge `training` data:
 
-| Method | Dataset | Track | Mean IoU | Notes |
-| ------ | ------- | ----- | -------- | ----- |
-| Classical SVM | Fluo-N2DH-GOWT1 | 01 | 0.73 | RBF kernel, window=5 |
-| CNN Baseline | Fluo-N2DH-GOWT1 | 02 | 0.81 | Lightweight U-Net |
+- Training: `0-54`
+- Validation: `55-72`
+- Test: `73-91`
 
-- Describe preprocessing, feature engineering, and model choices.
-- Link to notebooks or scripts that reproduce each row.
+This is the evaluation protocol used for the reported results below.
 
-## Tracking Results (Grad/Honors)
+## Quantitative Results
 
-| Tracker | Metric | Score | Notes |
-| ------- | ------ | ----- | ----- |
-| ASM + IoU linking | ID switches | 4 | Initialized from previous frame |
+Held-out evaluation on frames `73-91`:
 
-Explain how you propagate identities across frames and highlight failure cases.
+| Method | Mean IoU | SEG / Mean Jaccard | Notes |
+| ------ | -------- | ------------------ | ----- |
+| SVM | `0.8896` | `0.8895` | Strong baseline, but slower evaluation and slightly lower final score |
+| Logistic Regression | `0.8928` | `0.8926` | Competitive and fast, but still behind RF |
+| Random Forest | `0.9037` | `0.9035` | Best classical result in this repo |
 
-## Demo Videos / GIFs
+## What Worked
 
-Embed MP4/GIF assets committed under `docs/assets/` or hosted elsewhere.
+- Using the same split and window size across all methods made the comparison straightforward.
+- The enhanced sliding-window features were strong enough for all three classical models to produce useful segmentations.
+- Random Forest handled the local texture and boundary cues best among the classical baselines tested here.
 
-```html
-<video controls width="640">
-  <source src="assets/segmentation_demo.mp4" type="video/mp4" />
-  Your browser does not support the video tag.
-</video>
+## What Still Needs Improvement
+
+- Some difficult frames still show weaker boundary separation and merged cells.
+- The current workflow is semantic foreground/background segmentation rather than full instance-aware segmentation.
+- More hyperparameter tuning on the validation split would likely improve the weaker models.
+
+## Reproduction
+
+```bash
+conda env create -f environment.yml
+conda activate cse488-cell-tracking
+python scripts/setup_data.py Fluo-N2DH-GOWT1 --splits training test
+
+python scripts/train_model.py Fluo-N2DH-GOWT1 --track 01 --model svm --frames 0-54 --window 5 --samples 500 --model-path artifacts/models/svm.pkl
+python scripts/train_model.py Fluo-N2DH-GOWT1 --track 01 --model logreg --frames 0-54 --window 5 --samples 500 --model-path artifacts/models/logreg.pkl
+python scripts/train_model.py Fluo-N2DH-GOWT1 --track 01 --model rf --frames 0-54 --window 5 --samples 500 --model-path artifacts/models/rf.pkl
+
+python scripts/eval_seg.py Fluo-N2DH-GOWT1 --track 01 --model svm --frames 73-91 --window 5 --model-path artifacts/models/svm.pkl
+python scripts/eval_seg.py Fluo-N2DH-GOWT1 --track 01 --model logreg --frames 73-91 --window 5 --model-path artifacts/models/logreg.pkl
+python scripts/eval_seg.py Fluo-N2DH-GOWT1 --track 01 --model rf --frames 73-91 --window 5 --model-path artifacts/models/rf.pkl
 ```
 
-## Reproduction Checklist
+## Deliverable Note
 
-1. `conda env create -f environment.yml`
-2. `python scripts/setup_data.py --dataset Fluo-N2DH-GOWT1 --splits training test`
-3. `python scripts/train_svm.py ...`
-4. `python scripts/eval_seg.py ...`
-5. Additional steps for custom models.
-
-## Lessons Learned / Next Steps
-
-Share insights, what you'd try next, and open research questions.
+If you publish this page, replace this short summary with your preferred final wording and add qualitative images or videos from `docs/assets/` if you want a stronger public-facing presentation.
