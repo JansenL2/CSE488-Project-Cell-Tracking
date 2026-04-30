@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import shutil
 import zipfile
 from pathlib import Path
 from typing import Iterable, Optional
@@ -61,8 +60,6 @@ def ensure_evaluation_tools(base_dir: Path = DEFAULT_ARTIFACTS) -> Path:
     if segmeasure_binary.exists():
         segmeasure_binary.chmod(0o755)
     return tools_dir
-
-
 def ensure_segmeasure_script(base_dir: Path = DEFAULT_ARTIFACTS) -> Path:
     """Download the MySEGMeasure helper script."""
 

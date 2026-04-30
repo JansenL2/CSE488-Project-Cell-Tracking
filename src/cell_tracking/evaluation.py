@@ -6,6 +6,8 @@ import json
 from dataclasses import asdict, dataclass
 from pathlib import Path
 import re
+import subprocess
+import sys
 import time
 from typing import Any, Callable, Dict, Tuple
 
@@ -15,7 +17,7 @@ from skimage.color import label2rgb
 from skimage import io
 
 from .config import DEFAULT_ARTIFACTS
-from .data import ensure_evaluation_tools, ensure_segmeasure_script
+from .data import ensure_segmeasure_script
 
 
 ArrayLike = np.ndarray
@@ -99,56 +101,52 @@ def run_segmeasure(
     verbose: bool = False,
     progress_callback: Callable[[int, int, str], None] | None = None,
 ) -> SegMeasureResult:
-    """Run SEGMeasure-style evaluation on GT vs result folders."""
+    """Run the provided SEGMeasure tooling on GT vs result folders."""
 
-    base_dir = DEFAULT_ARTIFACTS
-    ensure_evaluation_tools(base_dir)
-    seg_script = ensure_segmeasure_script(base_dir)
     pairs = _segmeasure_pairs(gt_dir, res_dir)
     total = len(pairs)
     start_time = time.perf_counter()
 
-    all_scores: list[float] = []
-    stdout_lines: list[str] = []
-
-    for index, (frame_num, gt_path, pred_path) in enumerate(pairs, start=1):
-        pred_image = io.imread(str(pred_path)) > 0
-        gt_image = io.imread(str(gt_path))
-        jac, indices = compute_jaccard_index_for_matches(gt_image, pred_image)
-        all_scores.extend(indices.values())
-
-        if verbose:
-            stdout_lines.append("-" * 10)
-            stdout_lines.append(gt_path.name)
-            stdout_lines.append(f"JAC: {jac}")
-            for label_id, score in indices.items():
-                stdout_lines.append(f"    {label_id}: {score}")
-
+    for index, (frame_num, _gt_path, _pred_path) in enumerate(pairs, start=1):
         if progress_callback is not None:
             progress_callback(index, total, frame_num)
 
-    mean_jaccard_index = float(np.mean(all_scores)) if all_scores else 0.0
-    stdout_lines.append(f"Mean Jaccard Index: {mean_jaccard_index}")
-    stdout = "\n".join(stdout_lines) + "\n"
+    command = _build_segmeasure_script_command(gt_dir, res_dir, verbose=verbose)
+    try:
+        completed = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        stdout = completed.stdout
+        stderr = completed.stderr
+    except OSError as exc:
+        stdout = ""
+        stderr = str(exc)
 
-    print(stdout, end="")
-
-    cmd = [
-        "python",
-        str(seg_script),
-        str(gt_dir),
-        str(res_dir),
-    ]
-    if verbose:
-        cmd.append("-v")
+    if stdout:
+        print(stdout, end="" if stdout.endswith("\n") else "\n")
+    if stderr and verbose:
+        print(stderr, end="" if stderr.endswith("\n") else "\n", file=sys.stderr)
 
     return SegMeasureResult(
         mean_jaccard_index=_parse_mean_jaccard_index(stdout),
         stdout=stdout,
-        stderr="",
-        command=cmd,
+        stderr=stderr,
+        command=[str(part) for part in command],
         elapsed_seconds=time.perf_counter() - start_time,
     )
+
+
+def _build_segmeasure_script_command(gt_dir: Path, res_dir: Path, verbose: bool = False) -> list[str]:
+    """Build the command for the bundled ``MySEGMeasure.py`` script."""
+
+    seg_script = ensure_segmeasure_script(DEFAULT_ARTIFACTS)
+    command = [sys.executable, str(seg_script), str(gt_dir), str(res_dir)]
+    if verbose:
+        command.append("-v")
+    return command
 
 
 def format_duration(seconds: float | None) -> str:

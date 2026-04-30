@@ -26,7 +26,7 @@ All three models are trained with the same:
 - per-image sampling budget
 - evaluation protocol
 
-Predictions are evaluated with IoU summaries plus the provided `MySEGMeasure.py`-style SEG metric wrapper included in this project.
+Predictions are evaluated with IoU summaries plus the provided `MySEGMeasure.py` SEG metric workflow included in this project.
 
 ## Current Results
 
@@ -79,6 +79,8 @@ If you prefer, you can also install directly with pip in an existing Python 3.11
 ```bash
 pip install -e .[dev]
 ```
+
+This also installs the `cell-tracking` CLI, which mirrors the same undergraduate workflow as the scripts.
 
 ## Quickstart
 
