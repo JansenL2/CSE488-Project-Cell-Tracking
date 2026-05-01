@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import shutil
+import platform
 import zipfile
 from pathlib import Path
 from typing import Iterable, Optional
@@ -61,6 +61,28 @@ def ensure_evaluation_tools(base_dir: Path = DEFAULT_ARTIFACTS) -> Path:
     if segmeasure_binary.exists():
         segmeasure_binary.chmod(0o755)
     return tools_dir
+
+
+def get_segmeasure_binary(base_dir: Path = DEFAULT_ARTIFACTS) -> Path:
+    """Return the SEGMeasure binary for the current platform."""
+
+    tools_dir = ensure_evaluation_tools(base_dir)
+    system = platform.system().lower()
+
+    if system == "darwin":
+        binary = tools_dir / "Mac" / "SEGMeasure"
+    elif system == "linux":
+        binary = tools_dir / "Linux" / "SEGMeasure"
+    elif system == "windows":
+        binary = tools_dir / "Win" / "SEGMeasure.exe"
+    else:
+        raise RuntimeError(f"Unsupported platform for SEGMeasure binary: {platform.system()}")
+
+    if not binary.exists():
+        raise FileNotFoundError(f"SEGMeasure binary not found at {binary}")
+
+    binary.chmod(0o755)
+    return binary
 
 
 def ensure_segmeasure_script(base_dir: Path = DEFAULT_ARTIFACTS) -> Path:
