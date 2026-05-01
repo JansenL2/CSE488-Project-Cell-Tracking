@@ -7,6 +7,7 @@ from pathlib import Path
 import time
 
 import numpy as np
+import tifffile
 import typer
 from rich.console import Console
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
@@ -17,6 +18,7 @@ from .data import ensure_all
 from .evaluation import (
     count_segmeasure_pairs,
     compute_jaccard_index_for_matches,
+    label_cells,
     run_segmeasure,
     save_colored_segmentation,
     save_evaluation_report,
@@ -204,8 +206,14 @@ def evaluate(
                 }
             )
 
-            io.imsave(str(pred_dir / f"mask{frame_num}.tif"), mask * 255)
-            save_colored_segmentation(mask, pred_dir / f"colored_mask{frame_num}.png", image=image)
+            labeled_mask = label_cells(mask).astype(np.uint16)
+            tifffile.imwrite(
+                pred_dir / f"mask{frame_num}.tif",
+                labeled_mask,
+                compression="lzw",
+                photometric="minisblack",
+            )
+            save_colored_segmentation(labeled_mask, pred_dir / f"colored_mask{frame_num}.png", image=image)
             progress.update(task, advance=1)
 
     frame_evaluation_elapsed_seconds = time.perf_counter() - frame_eval_start

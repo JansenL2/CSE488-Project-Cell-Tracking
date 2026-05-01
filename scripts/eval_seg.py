@@ -8,6 +8,7 @@ from pathlib import Path
 import time
 
 import numpy as np
+import tifffile
 from skimage import io
 from rich.console import Console
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn, TimeRemainingColumn
@@ -16,6 +17,7 @@ from cell_tracking.config import artifacts_path
 from cell_tracking.evaluation import (
     count_segmeasure_pairs,
     compute_jaccard_index_for_matches,
+    label_cells,
     run_segmeasure,
     save_colored_segmentation,
     save_evaluation_report,
@@ -123,12 +125,18 @@ def main() -> None:
                 }
             )
             
-            # Save binary mask
-            io.imsave(str(pred_dir / f"mask{frame_num}.tif"), mask * 255)
+            # Save labeled instance mask for Cell Tracking Challenge evaluation
+            labeled_mask = label_cells(mask).astype(np.uint16)
+            tifffile.imwrite(
+                pred_dir / f"mask{frame_num}.tif",
+                labeled_mask,
+                compression="lzw",
+                photometric="minisblack",
+            )
             
             # Save colored segmentation (with each cell in a different color)
             save_colored_segmentation(
-                mask, 
+                labeled_mask,
                 pred_dir / f"colored_mask{frame_num}.png",
                 image=image
             )
@@ -146,7 +154,7 @@ def main() -> None:
         console.print(f"  Max IoU: {np.max(all_ious):.4f}")
         console.print()
         console.print(f"[bold]Outputs saved to: {pred_dir}[/bold]")
-        console.print("  - [cyan]mask*.tif[/cyan] - Binary segmentation masks")
+        console.print("  - [cyan]mask*.tif[/cyan] - Labeled instance masks for CTC evaluation")
         console.print("  - [green]colored_mask*.png[/green] - Colored cell visualization (each cell has a unique color)")
     
     # Run SEGMeasure on all predictions

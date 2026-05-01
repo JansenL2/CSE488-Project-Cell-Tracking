@@ -26,7 +26,7 @@ All three models are trained with the same:
 - per-image sampling budget
 - evaluation protocol
 
-Predictions are evaluated with IoU summaries plus the provided `MySEGMeasure.py` SEG metric workflow included in this project.
+Predictions are evaluated with IoU summaries plus the official Cell Tracking Challenge `SEGMeasure` workflow. The evaluation code stages predictions into the expected CTC folder layout and falls back to `MySEGMeasure.py` only if the binary is unavailable.
 
 ## Current Results
 
@@ -106,7 +106,7 @@ python scripts/train_model.py Fluo-N2DH-GOWT1 --track 01 --model logreg --frames
 python scripts/train_model.py Fluo-N2DH-GOWT1 --track 01 --model rf --frames 0-54 --window 5 --samples 500 --model-path artifacts/models/rf.pkl
 ```
 
-4. Evaluate each model on the held-out test frames:
+4. Evaluate each model on the held-out test frames with the official Cell Tracking Challenge `SEGMeasure` binary:
 
 ```bash
 python scripts/eval_seg.py Fluo-N2DH-GOWT1 --track 01 --model svm --frames 73-91 --window 5 --model-path artifacts/models/svm.pkl
@@ -129,6 +129,8 @@ The model and evaluation scripts currently have permissive defaults intended for
 
 - Trained models: `artifacts/models/*.pkl`
 - Predicted masks and reports: `artifacts/results/<dataset>/<track>/<model>/`
+  The saved `mask*.tif` files are labeled instance masks formatted for CTC evaluation.
+- CTC-style staged evaluation folders: `artifacts/results/<dataset>/<track>/<model>/ctc_eval/`
 - Latest evaluation summaries: `latest_evaluation.txt` and `latest_evaluation.json` inside each model result directory
 
 ## Testing
